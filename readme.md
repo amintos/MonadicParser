@@ -90,15 +90,14 @@ An own parsing expression can be created by deriving a class from ```Expression`
 ```python
 class AnyOf(Expression):
 	
-  def __init__(self, choices):
-		self.choices = choices
+    def __init__(self, choices):
+        self.choices = choices
     
-	def instantiate(self, value, position, previous):
-		item = value[position]
-		if value[position] in self.choices:
-      # note that we have to yield the result and the NEXT position.
-			yield ItemInstance(item, position), position + 1   
-      
+    def instantiate(self, value, position, previous):
+        item = value[position]
+        if value[position] in self.choices:
+            # note that we have to yield the result and the NEXT position.
+            yield ItemInstance(item, position), position + 1   
 ```
 
 **Not yielding anything** is considered failure and causes backtracking. **Yielding multiple times** causes the parser to backtrack to the next yield if the first did not lead to a full instantiation. Given this extension we can rewrite our bit-parser:

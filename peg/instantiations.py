@@ -175,7 +175,6 @@ class Sequence(InstantiatedExpression):
     """Instantiation of multiple chained items"""
 
     def __init__(self, items):
-        self.pos = items[0].pos
         self.items = items
 
     def combined_with(self, other):

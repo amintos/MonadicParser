@@ -55,3 +55,16 @@ g['expr'] = g['add'] >> Make(BinaryAdd, left = l, right = r)
 g['add'] = (g['digit'] >> l) + Item('+') + (g['digit'] >> r)
 g['digit'] = (Item('1') | Item('0')) >> Make(int)
 
+
+# An own extension (see readme.md before)
+
+class Select(Unifiable):
+    def __init__(self, one, another):
+        self.one = one
+        self.another = another
+
+    def unify(self, value):
+        for result in self.one.unify(value):
+            yield result
+        for result in self.another.unify(value):
+            yield result

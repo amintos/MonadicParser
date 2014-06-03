@@ -15,7 +15,7 @@ from peg import *
 zero = Item('0')
 ```
 
-Parsers can be combined using either chaining (+) or alternative (|). Chained parsers are applied in order and the suffix left over by one parser is consumed by the next one. Alternatives evaluate both possible parsing paths, each parser starts with the same suffix.
+Parsers can be combined using either chaining (```+```) or alternative (```|```). Chained parsers are applied in order and the suffix left over by one parser is consumed by the next one. Alternatives evaluate both possible parsing paths, each parser starts with the same suffix. 
 
 ```python
 bit = Item('0') | Item('1')
@@ -34,15 +34,15 @@ Let's try that out:
 
 ```python
 for result, pos in bit.instantiate('1', 0, None):
-    print result
-# <1 at 0>
+    print result, pos
+# 1 1
 ```
 
-The result is an InstantiatedExpression object with value '1' at position 0. The ```pos``` variable will contain the position where parsing has finished. The parser resolves to exactly one instantiation, because the grammar is not ambiguous. The other arguments are just the starting position and the previously parsed result in case the parser needs it.
+The ```pos``` variable will contain the position where parsing has finished. The parser resolves to exactly one instantiation, because the grammar is not ambiguous. The other arguments are just the starting position and the previously parsed result in case the parser needs it.
 
 ### Capturing results using variables
 
-Now how do we extract multiple integers from our expression? We use variables:
+We use **variables** to extract multiple integers from our expression:
 
 ```python
 l = Variable()
@@ -85,6 +85,8 @@ for result, pos in add.instantiate('1+1', 0, None):
 
 ## Creating custom parsers
 
+### Deriving a new expression type
+
 An own parsing expression can be created by deriving a class from ```Expression``` and overriding ```def instantiate(self, value, position, before)```. This example shows how to create a parser that parses an item if it is included in a specific set:
 
 ```python
@@ -105,3 +107,67 @@ class AnyOf(Expression):
 ```python
 bit = AnyOf('01') >> Make(int)
 ```
+
+### Unification and the >> operator
+
+The semantics of modifiers attached via the ```>>``` operator can be explained using the concept of unification. The left term is made similar to the right term and each possible instantiation which could be unified is yielded back.
+
+If a **variable** gets unified, it first accepts every term and stores it. Whenever the same variable is used again, it only unifies with terms which in turn unify with the value stored in the variable.
+
+```python
+# this will parse 'aa' and leave the last match in x,
+# because ItemInstance('a', 0) unifies with ItemInstance('a', 1)
+x = Variable()
+p = (Item('a') >> x) + (Item('a') >> x)   
+
+# this will never parse
+x = Variable()
+p = (Item('a') >> x) + (Item('b') >> x)  
+```
+
+Every result given by item-parsers unify with other items as long as they matched the same symbol (the position is ignored during unification). That means, a variable bound to an ```ItemInstance('a', 10)``` can be unified again with ```ItemInstance('a', 25)``` but not with ```ItemInstance('b', 10)```. A sequence of chained items will unify if each element unifies with the corresponding element of the other sequence and both have the same size, etc.
+
+```Make``` produces a unified result by invoking the given factory method. 
+
+It is possible to add unifying extensions to the framework, for example a unifier which selects any of two variables. This can be achieved by overriding ```unify```to yield back the unification result of both arguments.
+
+```python
+class Select(Unifiable):
+    def __init__(self, one, another):
+        self.one = one
+        self.another = another
+
+    def unify(self, value):
+        for result in self.one.unify(value):
+            yield result
+        for result in self.another.unify(value):
+            yield result
+```
+
+With this expression it is now possible to write a grammar which matches any triples of letters 'a', 'b' and 'c' as long as the last element matches either the first or the second:
+
+```python
+x = Variable()
+y = Variable()
+abc = Item('a') | Item('b') | Item('c')
+
+# Store first match in x, second match in y,
+# then only accept x or y again:
+p = (abc >> x) + (abc >> y) + (abc >> Select(x, y))
+
+# this will work (also with 'aaa', 'aba', 'abb', ...)
+for r, i in p.instantiate('aca', 0, None):
+	print x, y
+ 
+# this won't work (also not with 'abc') 
+for r, i in p.instantiate('aab', 0, None):
+	print x, y
+```
+
+The current implementation is not progressed very far, so unification is limited. It is not possible to recursively unify sequences containing items and variables due to some simplification.
+
+
+
+
+
+

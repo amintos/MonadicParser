@@ -100,12 +100,7 @@ class Chain(Expression):
                 elif right_value is Empty:
                     yield left_value, p2
                 else:
-                    # If two expressions yield an instantiation, call their
-                    # (polymorphic) combinator.
-                    if hasattr(left_value, 'combined_ with'):
-                        yield (left_value.combined_with(right_value), p2)
-                    else:
-                        yield right_value, p2
+                    yield right_value, p2
 
 
 class Unify(Expression):

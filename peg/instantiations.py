@@ -243,11 +243,18 @@ class Make(Unifiable):
     
     def __init__(self, factory, **kwargs):
         self.factory = factory
-        self.args = kwargs
+        if not kwargs:
+            self.direct = True
+        else:
+            self.direct = False
+            self.args = kwargs
 
     def unify(self, value):
-        kwargs = {}
-        for key, var in self.args.iteritems():
-            if var.bound:
-                kwargs[key] = var.unpack()
-        yield self.factory(**kwargs)
+        if self.direct:
+            yield self.factory(value.unpack())
+        else:
+            kwargs = {}
+            for key, var in self.args.iteritems():
+                if var.bound:
+                    kwargs[key] = var.unpack()
+            yield self.factory(**kwargs)

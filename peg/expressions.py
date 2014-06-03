@@ -33,21 +33,30 @@ class Reference(Expression):
     def __init__(self, grammar, key):
         self.grammar = grammar
         self.key = key
+        self._pos = 0
 
     def instantiate(self, value, position, before):
+        self._pos = position
         if not self.ensure_progress(position, len(value)):
             print "Warning: Instantiation of rule '%s' may be infinite. Tracking back." % self.key
             return
-        self.grammar.history.append((position, self))
-        for result, next_pos in self.grammar.rules[self.key].instantiate(value, position, before):
-            yield result, next_pos
-        self.grammar.history.pop()
+        with self:
+            for result, next_pos in self.grammar.rules[self.key].instantiate(value, position, before):
+                yield result, next_pos
+        
 
     def ensure_progress(self, pos, size):
         for prev_pos, rule in reversed(self.grammar.history):
             if rule is self and pos == prev_pos and pos < size:
                 return False
         return True
+
+    def __enter__(self):
+        self.grammar.history.append((self._pos, self))
+
+    def __exit__(self, *args):
+        self.grammar.history.pop()
+        self._pos = 0
 
 
 class Grammar(Expression):
@@ -61,7 +70,7 @@ class Grammar(Expression):
 
     def __setitem__(self, key, value):
         """Define a non-terminal"""
-        self.rules[key] = value >> Label(key)
+        self.rules[key] = value
 
     def __getitem__(self, item):
         """Refer to a non-terminal. The resolution can be defined later (lazy)"""
@@ -93,7 +102,10 @@ class Chain(Expression):
                 else:
                     # If two expressions yield an instantiation, call their
                     # (polymorphic) combinator.
-                    yield (left_value.combined_with(right_value), p2)
+                    if hasattr(left_value, 'combined_ with'):
+                        yield (left_value.combined_with(right_value), p2)
+                    else:
+                        yield right_value, p2
 
 
 class Unify(Expression):

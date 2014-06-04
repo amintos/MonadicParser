@@ -1,4 +1,5 @@
 from instantiations import *
+from itertools import chain
 
 class Expression(object):
     """Base class for parsing expressions"""
@@ -41,7 +42,8 @@ class Reference(Expression):
             print "Warning: Instantiation of rule '%s' may be infinite. Tracking back." % self.key
             return
         with self:
-            for result, next_pos in self.grammar.rules[self.key].instantiate(value, position, before):
+            for result, next_pos in self.grammar.rules[self.key].instantiate(
+                    value, position, before):
                 yield result, next_pos
         
 
@@ -78,29 +80,22 @@ class Grammar(Expression):
 
     def instantiate(self, value, position=0, before=None):
         """Instantiate grammar on a given collection"""
-        for result, next_pos in self.rules[self.start].instantiate(value, position, before):
+        for result, next_pos in self.rules[self.start].instantiate(
+                value, position, before):
             yield result, next_pos
 
 
 class Chain(Expression):
     """Chains two expressions. Results are combined using the combined_with method."""
 
-    def __init__(self, left, right):
+    def __init__(self, left, right, combine=False):
         self.left = left
         self.right = right
 
     def instantiate(self, value, position, before):
         for left_value, p1 in self.left.instantiate(value, position, before):
             for right_value, p2 in self.right.instantiate(value, p1, left_value):
-                # Any of the expressions may yield the empty instantiation.
-                if left_value is Empty:
-                    if right_value is Empty:
-                        yield Empty, p2
-                    yield right_value, p2
-                elif right_value is Empty:
-                    yield left_value, p2
-                else:
-                    yield right_value, p2
+                yield right_value, p2
 
 
 class Unify(Expression):
@@ -125,9 +120,9 @@ class Alternative(Expression):
         self.another = another
 
     def instantiate(self, value, position, before):
-        for result, rest in self.one.instantiate(value, position, before):
-            yield result, rest
-        for result, rest in self.another.instantiate(value, position, before):
+        for result, rest in chain(
+                self.one.instantiate(value, position, before),
+                self.another.instantiate(value, position, before)):
             yield result, rest
 
 
@@ -157,7 +152,7 @@ class Item(Expression):
     def instantiate(self, value, position, before):
         if position < len(value):
             for match in self.match.unify(value[position]):
-                yield (ItemInstance(match, position), position + 1)
+                yield ItemInstance(match, position), position + 1
 
     def __repr__(self):
         return "Item(%s)" % self.value
@@ -179,7 +174,7 @@ class Ahead(Expression):
 
     def instantiate(self, value, position, before):
         for result, next_pos in self.expression.instantiate(value, position, before):
-            yield Empty, position
+            yield before, position
             break
 
 
@@ -209,7 +204,7 @@ class Repeat(Expression):
         self.once = once
 
     def instantiate(self, value, position, before):
-        result, next_pos, next_before = Empty, position, before
+        result, next_pos, next_before = before, position, before
         try:
             while True:
                 next_result, next_pos = self.what.instantiate(value, next_pos, next_before).next()
@@ -232,6 +227,6 @@ class RepeatBack(Expression):
             continues = False
             for next_result, p2 in self.instantiate(value, p1, result):
                 continues = True
-                yield result.combined_with(next_result), p2
+                yield next_result, p2
             if not continues:
                 yield result, p1

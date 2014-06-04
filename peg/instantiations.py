@@ -12,7 +12,6 @@ class Unifiable(object):
         if self == value:
             yield self
 
-
 class Any(Unifiable):
     """Accept any parse result"""
 

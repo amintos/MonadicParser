@@ -48,7 +48,7 @@ We use **variables** to extract multiple integers from our expression:
 l = Variable()
 r = Variable()
 
-add = (bit >> l) + Item('+') + (bit >> r)
+add = (bit >> l) + item('+') + (bit >> r)
 ```
 
 To see exactly how this evaluates, try:
@@ -72,7 +72,7 @@ We can bind the arguments of this method to our variables using the Make modifie
 Make will unpack the variables transparently into the method's arguments.
 
 ```python
-add = ((bit >> l) + Item('+') + (bit >> r)) >> Make(binary_add, left=l, right=r)
+add = ((bit >> l) + item('+') + (bit >> r)) >> Make(binary_add, left=l, right=r)
 ```
 
 Now we can try the following:
@@ -130,16 +130,14 @@ If a **variable** gets unified, it first accepts every term and stores it. Whene
 
 ```python
 # this will parse 'aa' and leave the last match in x,
-# because ItemInstance('a', 0) unifies with ItemInstance('a', 1)
+# because 'a' unifies with 'a'
 x = Variable()
-p = (Item('a') >> x) + (Item('a') >> x)   
+p = (item('a') >> x) + (item('a') >> x)   
 
 # this will never parse
 x = Variable()
-p = (Item('a') >> x) + (Item('b') >> x)  
+p = (item('a') >> x) + (item('b') >> x)  
 ```
-
-Every result given by item-parsers unify with other items as long as they matched the same symbol (the position is ignored during unification). That means, a variable bound to an ```ItemInstance('a', 10)``` can be unified again with ```ItemInstance('a', 25)``` but not with ```ItemInstance('b', 10)```. A sequence of chained items will unify if each element unifies with the corresponding element of the other sequence and both have the same size, etc.
 
 ```Make``` produces a unified result by invoking the given factory method. 
 

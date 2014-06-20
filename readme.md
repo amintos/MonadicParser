@@ -186,9 +186,9 @@ The foundation of these parser expressions is a so called ***monad with addition
 
 In case of **lists**, the **return** operation just maps ```x``` to ```[x]``` while the **bind** operation is also known as *flat-map*: it puts every element of the list into a function which results in a new list for every item. These mapped lists are then concatenated to form a single flattened list again. 
 
-In a **parser** world, we want a parser to represent a *"list of possible parse results"* at the given input (and position). These lists should be lazy, so instead of assembling and concatenating lists we use **Python generators** and just ```yield``` each parse result. Concatenation is achieved by successively yielding from two generators. The **return** operation would then just create a parser which consumes no input and yields the (single) given result. The **bind** operation ```p.bind(func)``` should put each result of a sub-parser into ```func``` and continue parsing with all the parsers resulting from ```func```. The result of the **bind** operation is encapsulated in a parser itself to *stay in the Monad*.
+In a **parser** world, we want a parser to represent a *"list of possible parse results"* at the given input (and position). These lists should be lazy, so instead of assembling and concatenating lists we use **Python generators** and just ```yield``` each parse result. Concatenation is achieved by successively yielding from two generators. The **return** operation would then just create a parser which consumes no input and yields the (single) given result. The **bind** operation ```p.bind(func)``` should put each result of a sub-parser into ```func``` and continue parsing with all the parsers resulting from ```func```. The result of the **bind** operation is encapsulated in a parser itself to *stay in the monad*.
 
-Given such a definition of **bind** and **Return** we can start to combine parsers in the form of:
+Given such a definition of **bind** and **return** we can start to combine parsers in the form of:
 
 ```python
 def combine(p, q, ...):

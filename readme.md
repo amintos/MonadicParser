@@ -54,7 +54,7 @@ add = (bit >> l) + Item('+') + (bit >> r)
 To see exactly how this evaluates, try:
 
 ```python
-for result, pos in add('1+0', 0, None):
+for result, pos in add('1+0', 0):
     print l.value, r.value
     
 # 1 0
@@ -78,7 +78,7 @@ add = ((bit >> l) + Item('+') + (bit >> r)) >> Make(binary_add, left=l, right=r)
 Now we can try the following:
 
 ```python
-for result, pos in add('1+1', 0, None):
+for result, pos in add('1+1', 0):
     print result
     
 # 0, that's the result of our method.

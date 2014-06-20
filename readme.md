@@ -192,10 +192,10 @@ Given such a definition of **bind** and **return** we can start to combine parse
 
 ```python
 def combine(p, q, ...):
-    p.bind(lambda result1:
-           q.bind(lambda result2:
+    return p.bind(lambda result1:
+                  q.bind(lambda result2:
                   ...
-                  Return(computation_with_results)))
+                         Return(computation_with_results)))
                   
 # one example: a parser which parses one element and only continues if
 # the element satisfies a given predicate. 

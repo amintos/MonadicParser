@@ -1,25 +1,147 @@
+"""
+Monad of PEG-Like Expressions
+-----------------------------
+
+Expressions are callables, taking a value and a position. Calling parses
+the (indexable) value at the given position and yields pairs
+(result, next_position) for each possible interpretation.
+
+Expressions form a monad with
+
+    Return(x)
+        consuming no input and yielding only x.
+        
+    Bind(x, f), also x ** f
+        applying f to each result from parser x. f should return a new
+        Expression which is evaluated for each suffix left over by x.
+        
+        Laws:
+                         p ** Return == p       # right unit property
+                      Return(a) ** f == f(a)
+        p ** (lambda a: (f(a) ** g)) == (p ** (lambda a: f(a))) ** g
+
+    Branch(p, q), also p | q
+        being the addition in the monad. Follows both parsing paths.
+        
+        Laws:
+        (p | q) | r  == p | (q | r)             # associativity
+        (p | q) ** f == (p ** f) | (q ** f)     # distributivity over binding
+
+    Zero(), also zero
+        being the unit element of addition/branching.
+        
+        Laws:
+        p | Zero() == p                         # right unit property
+        Zero() | p == p                         # left unit property
+
+The following additional expressions are present:
+
+    Basics
+    ------
+
+    element
+        Consumes the next element and returns it.
+
+    item(x)
+        Consumes just x and returns it.
+
+    chain(p, q)
+        Apply parser p followed by parser q. Returns q's result.
+
+    when(p, cond)
+        Apply p but filter results by cond. cond should be a lambda
+        expression taking p's result as input and return a bool.
+
+    many(p)
+        Non-greedy star. Apply p zero or more times, backtrack as needed.
+
+    some(p)
+        Non-greedy plus. Apply p one or more times, backtracking as needed.
+
+
+    Recursors
+    ---------
+
+    star(p)
+        Greedy star. (Not guaranteed to unbind variables!)
+        Apply parser p zero or more times. Returns list of matches.
+        
+    plus(p)
+        Greedy plus. (Not guaranteed to unbind variables!)
+        Apply parser p one or more times. Return non-empty list of matches.
+
+
+    Grammars
+    --------
+
+    g.Grammar(start_symbol)
+        Defines a grammar which maps symbols (strings) to parser expressions.
+
+    g[symbol] = parser
+        Defines a named parser in g.
+
+    g[symbol]
+        Refers to a named parser in g.
+
+    Symbols use **late binding** so that in order to refer to a symbol
+    the symbol itself does not need to be defined.
+        
+    g(data)
+        Applys g[starting_symbol] to the given data.
+
+
+    Filters
+    -------
+
+    p >> f
+        puts the results of p through f. f should have a 'unify' method
+        which accepts output values of p and yields transformed values.
+
+    There are multiple filters:
+
+    Variable()
+        creates a filter which stores the value for subsequent parsers.
+        If it has a value stored and is forced to bind against a different
+        value, it will fail and yield nothing. Variables expose their
+        current value via unpack():
+
+        v = Variable()
+        for result in (p >> v)(input):
+            print v.unpack()
+        
+    Make(method, [arg=var [,arg=var[, ...]])
+        consumes a transformation method and yields the transformed
+        result. Can auto-unpack variables into method arguments.
+
+        Example 1:
+
+        p >> Make(int)
+
+        Example 2:
+
+        v = Variable()
+        w = Variable()
+        ((p >> v) + (q >> w)) >> Make(some_class, x=v, y=w)
+
+    Label(symbol)
+        just labels a parsed result with symbol.
+        
+        
+"""
+
 from instantiations import *
-from itertools import chain
 
 class Expression(object):
     """Base class for parsing expressions"""
-
-    @staticmethod
-    def lift(value):
-        """Make sure atomic values are constant expressions"""
-        if isinstance(value, Expression):
-            return value
-        else:
-            return Constant(value)
-
-    def instantiate(self, value, position, before):
-        raise NotImplemented
+    
+    def __call__(self, value, position):
+        raise NotImplementedError
 
     def __add__(self, other):
-        return Chain(self, other)
+        return chain(self, other)
 
     def __or__(self, other):
-        return Alternative(self, other)
+        return Branch(self, other)
 
     def __rshift__(self, other):
         return Unify(self, other)
@@ -27,6 +149,89 @@ class Expression(object):
     def __xor__(self, other):
         return Locate(self, other)
 
+    def __pow__(self, other):
+        """Bind operator in a monad of parsers"""
+        return Bind(self, other)
+
+
+class Bind(Expression):
+    """Resulting parser of the monadic bind operator.
+    'expr' is the parser to which we bind the 'each' method for each result.
+    'each' is expected to take the parsed result and return a new parser."""
+
+    def __init__(self, expr, each):
+        self.expr = expr
+        self.each = each
+
+    def __call__(self, value, position):
+        for r1, p1 in self.expr(value, position):   
+            for r2, p2 in self.each(r1)(value, p1):
+                yield r2, p2
+
+
+class Return(Expression):
+    """The returning element of the monad. Does not consume input,
+    yields only the result"""
+
+    def __init__(self, result):
+        self.result = result
+
+    def __call__(self, value, position):
+        yield self.result, position
+
+
+class Zero(Expression):
+    """The monad's zero element. Signals parsing failure."""
+    
+    def __call__(self, value, position):
+        return
+        yield   # the "empty generator pattern"
+zero = Zero()
+
+class Branch(Expression):
+    """The monad's addition. Yields results from both given parsers."""
+
+    def __init__(self, p, q):
+        self.p = p
+        self.q = q
+
+    def __call__(self, value, position):
+        import itertools
+        for result, pos in itertools.chain(self.p(value, position),
+                                           self.q(value, position)):
+            yield result, pos
+            
+
+class Element(Expression):
+    """Parser for just the next element"""
+    
+    def __call__(self, value, position):
+        if position < len(value):
+            yield value[position], position + 1
+element = Element() 
+
+        
+def chain(p1, p2):
+    """Apply both parsers in order, return the most recent result"""
+    return p1 ** (lambda result: p2)
+
+def when(predicate):
+    """Parse an element when it satisfies the predicate"""
+    return element ** (lambda r: Return(r) if predicate(r) else zero)
+
+def item(c):
+    """Parse an element matching exactly c"""
+    return when(lambda r: r == c)
+
+def many(p):
+    """Apply a parser zero or more times"""
+    return some(p) | Return([])
+
+def some(p):
+    """Apply a parser one or more times"""
+    return p ** (lambda a:
+                 many(p) ** (lambda aa:
+                             Return([a] + aa)))
 
 class Reference(Expression):
     """Lazy reference to a grammar rule. Detects infinite recursion."""
@@ -36,16 +241,15 @@ class Reference(Expression):
         self.key = key
         self._pos = 0
 
-    def instantiate(self, value, position, before):
+    def __call__(self, value, position):
         self._pos = position
         if not self.ensure_progress(position, len(value)):
             print "Warning: Instantiation of rule '%s' may be infinite. Tracking back." % self.key
             return
         with self:
-            for result, next_pos in self.grammar.rules[self.key].instantiate(
-                    value, position, before):
+            parse_rule = self.grammar.rules[self.key]
+            for result, next_pos in parse_rule(value, position):
                 yield result, next_pos
-        
 
     def ensure_progress(self, pos, size):
         for prev_pos, rule in reversed(self.grammar.history):
@@ -59,7 +263,6 @@ class Reference(Expression):
     def __exit__(self, *args):
         self.grammar.history.pop()
         self._pos = 0
-
 
 class Grammar(Expression):
     """Collection of named rules."""
@@ -78,24 +281,10 @@ class Grammar(Expression):
         """Refer to a non-terminal. The resolution can be defined later (lazy)"""
         return Reference(self, item)
 
-    def instantiate(self, value, position=0, before=None):
+    def __call__(self, value, position=0):
         """Instantiate grammar on a given collection"""
-        for result, next_pos in self.rules[self.start].instantiate(
-                value, position, before):
+        for result, next_pos in self.rules[self.start](value, position):
             yield result, next_pos
-
-
-class Chain(Expression):
-    """Chains two expressions. Results are combined using the combined_with method."""
-
-    def __init__(self, left, right, combine=False):
-        self.left = left
-        self.right = right
-
-    def instantiate(self, value, position, before):
-        for left_value, p1 in self.left.instantiate(value, position, before):
-            for right_value, p2 in self.right.instantiate(value, p1, left_value):
-                yield right_value, p2
 
 
 class Unify(Expression):
@@ -106,92 +295,18 @@ class Unify(Expression):
         self.expression = expression
         self.pattern = pattern
 
-    def instantiate(self, value, position, before):
-        for parse_result, p1 in self.expression.instantiate(value, position, before):
+    def __call__(self, value, position):
+        for parse_result, p1 in self.expression(value, position):
             for unify_result in self.pattern.unify(parse_result):
                 yield unify_result, p1
+                
 
-
-class Alternative(Expression):
-    """Non-deterministically branches instantiation along two expressions"""
-
-    def __init__(self, one, another):
-        self.one = one
-        self.another = another
-
-    def instantiate(self, value, position, before):
-        for result, rest in chain(
-                self.one.instantiate(value, position, before),
-                self.another.instantiate(value, position, before)):
-            yield result, rest
-
-
-class Return(Expression):
+class EndOfInput(Expression):
     """Matches end of input. Instantiates to an End instance or fails."""
 
-    def instantiate(self, value, position, before):
+    def __call__(self, value, position):
         if position == len(value):
-            yield (End(position), position)
-
-    def __add__(self, other):
-        raise Exception("Trying to place anything behind end-of-match.")
-
-    def __repr__(self):
-        return "Return"
-
-    def unpack(self):
-        return None
-
-
-class Item(Expression):
-    """Matches a Unifiable or constant against an input item, yields ItemInstance."""
-
-    def __init__(self, match):
-        self.match = Unifiable.lift(match)
-
-    def instantiate(self, value, position, before):
-        if position < len(value):
-            for match in self.match.unify(value[position]):
-                yield ItemInstance(match, position), position + 1
-
-    def __repr__(self):
-        return "Item(%s)" % self.value
-
-
-class Anything(Expression):
-    """Skips an item"""
-
-    def instantiate(self, value, position, before):
-        yield (ItemInstance(value[position], position), position + 1)
-AnyItem = Anything()
-
-
-class Ahead(Expression):
-    """Look-ahead expression. Yields the empty instantiation of look-ahead succeeds."""
-
-    def __init__(self, expression):
-        self.expression = expression
-
-    def instantiate(self, value, position, before):
-        for result, next_pos in self.expression.instantiate(value, position, before):
-            yield before, position
-            break
-
-
-class Locate(Expression):
-    """Extracts the position of the current match and unifies it.
-    Example:   position = Variable(); parser = Locate(Item('x'), position)"""
-
-    def __init__(self, expression, match):
-        self.expression = expression
-        self.match = match
-
-    def instantiate(self, value, position, before):
-        for result, next_pos in self.expression.instantiate(value, position, before):
-            for _ in self.match.unify(result.pos):
-                yield result, next_pos
-
-
+            yield End(position), position
 
 
 class Repeat(Expression):
@@ -203,30 +318,27 @@ class Repeat(Expression):
         self.what = what
         self.once = once
 
-    def instantiate(self, value, position, before):
-        result, next_pos, next_before = before, position, before
+    def __call__(self, value, position):
+        result, next_pos = [], position
+        generator = None
         try:
             while True:
-                next_result, next_pos = self.what.instantiate(value, next_pos, next_before).next()
-                result = result.combined_with(next_result)
+                generator = self.what(value, next_pos)
+                next_result, next_pos = generator.next()
+                result.append(next_result)
                 next_before = result
+                generator.close()
         except StopIteration:
-            if not self.once or result is not Empty:
+            if not self.once or result:
                 yield result, next_pos
+        finally:
+            if generator:
+                generator.close()
 
+def star(p):
+    """Greedy star"""
+    return Repeat(p, False)
 
-class RepeatBack(Expression):
-    """Backtracking repeated expression. Will yield all instantiations.
-    WARNING: Uses stack depth proportional to the longest instantiation!"""
-
-    def __init__(self, what):
-        self.what = what
-
-    def instantiate(self, value, position, before):
-        for result, p1 in self.what.instantiate(value, position, before):
-            continues = False
-            for next_result, p2 in self.instantiate(value, p1, result):
-                continues = True
-                yield next_result, p2
-            if not continues:
-                yield result, p1
+def plus(p):
+    """Greedy plus"""
+    return Repeat(p, True)

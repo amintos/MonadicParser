@@ -18,9 +18,9 @@ r = Variable()
 
 # Item('x') matches element x. The | operator chains parsers.
 # Using the >> notation we pipe this parser's result into a constructor:
-digit = (Item('1') | Item('0')) >> Make(int)
+digit = (item('1') | item('0')) >> Make(int)
 
-op = Item('+')
+op = item('+')
 
 # Pipelining (>>) can also be used to bind Variables.
 # Keywords in the Make expression binds constructor arguments
@@ -36,7 +36,7 @@ for string in strings:
     # Instantiation takes the input data as well as a starting position
     # and a starting "AST", which is None.
     
-    for result, end in add.instantiate(string, 0, None):
+    for result, end in add(string, 0):
 
         # Why a for loop? Well, a grammar can have multiple valid
         # resolutions, so we return all of them. Parsing is lazy, so
@@ -52,8 +52,8 @@ g = Grammar('expr')         # expr is the starting non-terminal
 
 # we can add rules in arbitrary order. g['key'] is resolved in a lazy fashion.
 g['expr'] = g['add'] >> Make(BinaryAdd, left = l, right = r)
-g['add'] = (g['digit'] >> l) + Item('+') + (g['digit'] >> r)
-g['digit'] = (Item('1') | Item('0')) >> Make(int)
+g['add'] = (g['digit'] >> l) + item('+') + (g['digit'] >> r)
+g['digit'] = (item('1') | item('0')) >> Make(int)
 
 
 # An own extension (see readme.md before)

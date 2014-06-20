@@ -105,29 +105,6 @@ class Constant(Unifiable):
         return self.value
 
 
-class ItemInstance(InstantiatedExpression):
-    """Instantiation of a matched item. Carries the position of its match."""
-
-    def __init__(self, value, pos):
-        self.value = value
-        self.pos = pos
-
-    def __repr__(self):
-        return "<%s at %s>" % (self.value, self.pos)
-
-    def combined_with(self, other):
-        return other.combined_with_item(self)
-
-    def unify(self, value):
-        if hasattr(value, 'value') and self.value == value.value:
-            yield value
-        elif self.value == value:
-            yield value
-
-    def unpack(self):
-        return self.value
-
-
 class Variable(Unifiable):
     """Captures the matched value. Matches only the captured value again."""
 
@@ -169,40 +146,6 @@ class Variable(Unifiable):
         return "<Variable bound to %s>" % repr(self.value) if self.bound else "<Unbound variable>"
 
 
-
-class Sequence(InstantiatedExpression):
-    """Instantiation of multiple chained items"""
-
-    def __init__(self, items):
-        self.items = items
-
-    def combined_with(self, other):
-        return other.combined_with_sequence(self)
-
-    def combined_with_item(self, other):
-        return Sequence([other] + self.items)
-
-    def combined_with_sequence(self, other):
-        return Sequence(other.items + self.items)
-
-    def __repr__(self):
-        return "Sequence(%s)" % self.items
-
-    def unify(self, value):
-        if isinstance(value, Sequence):
-            if len(self.items) == len(value.items):
-                try:
-                    for i in xrange(len(self.items)):
-                        self.items[i].unify(value.items[i]).next()
-                    yield value
-                except StopIteration:
-                    print "!"
-                    return
-
-    def unpack(self):
-        return [item.unpack() for item in self.items]
-
-
 class Result(InstantiatedExpression):
     """Instantiation wrapper with a label attached"""
 
@@ -214,7 +157,10 @@ class Result(InstantiatedExpression):
         return "<%s: %s>" % (self.label, self.result)
 
     def unpack(self):
-        return self.result.unpack()
+        if isinstance(self.result, Unifiable):
+            return self.result.unpack()
+        else:
+            return self.result
 
 
 class Label(Unifiable):
@@ -249,7 +195,7 @@ class Make(Unifiable):
 
     def unify(self, value):
         if self.direct:
-            yield self.factory(value.unpack())
+            yield self.factory(value)
         else:
             kwargs = {}
             for key, var in self.args.iteritems():

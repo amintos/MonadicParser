@@ -96,6 +96,28 @@ type_of(T)  # Return the parsed input iff it is an instance of T
 at(i)       # Extract item i from an input collection
 ```
 
+**Example:** Given two classes ```X``` (with an integer attribute ```foo```) and ```Y``` (with an integer attribute ```bar```). A parser which extracts the integer from either of these classes and checks for its type may looks like this:
+
+```
+class X(object):
+    def __init__(self):
+        self.foo = 42
+
+class Y(object):
+    def __init__(self):
+        self.bar = 21
+        
+v = Variable()
+
+# this is the parser:
+get_the_int = (type_of(X) & get('foo') | 
+               type_of(Y) & get('bar')) [ type_of(int) >> v]
+               
+# use it this way: 
+for result, pos in get_the_int(X(), 0):
+    print v.value
+```
+
 ## Creating custom parsers
 
 ### Deriving a new expression type

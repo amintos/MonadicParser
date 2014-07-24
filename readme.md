@@ -84,6 +84,18 @@ for result, pos in add('1+1', 0):
 # 0, that's the result of our method.
 ```
 
+### Recursing and ealing with objects
+
+The subscript combinator ```p[q]``` is a way of re-parsing the output of ```p``` with ```q```. If ```p``` just outputs a list (like the ```many``` or ```some``` combinators do), ```q``` may just use the parser semantics discussed above. However, many parsers will not yield parsable collections but single objects instead.
+
+A single object can be parsed and returned using the ```this``` unit parser. So ```p[this]``` is the same as ```p```. There are some more parser combinators which use single-object semantics instead of indexable lists:
+
+```python
+get('x')    # Extract attribute x from the object being parsed
+type_of(T)  # Return the parsed input iff it is an instance of T
+at(i)       # Extract item i from an input collection
+```
+
 ## Creating custom parsers
 
 ### Deriving a new expression type

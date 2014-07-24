@@ -68,3 +68,24 @@ class Select(Unifiable):
             yield result
         for result in self.another.unify(value):
             yield result
+
+# Structured data
+
+class X(object):
+    def __init__(self):
+        self.foo = 42
+
+class Y(object):
+    def __init__(self):
+        self.bar = 21
+
+v = Variable()
+
+# structured parser using [] to re-parse
+get_the_int = (type_of(X) & get('foo') | type_of(Y) & get('bar')) [ type_of(int) >> v]
+
+for result, pos in get_the_int(X(), 0):
+    print v.value
+
+for result, pos in get_the_int(Y(), 0):
+    print v.value

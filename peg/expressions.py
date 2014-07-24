@@ -143,11 +143,14 @@ class Expression(object):
     def __or__(self, other):
         return Branch(self, other)
 
+    def __and__(self, other):
+        return Both(self, other)
+
+    def __getitem__(self, inner):
+        return Inside(self, inner)
+
     def __rshift__(self, other):
         return Unify(self, other)
-
-    def __xor__(self, other):
-        return Locate(self, other)
 
     def __pow__(self, other):
         """Bind operator in a monad of parsers"""
@@ -188,6 +191,7 @@ class Zero(Expression):
         yield   # the "empty generator pattern"
 zero = Zero()
 
+
 class Branch(Expression):
     """The monad's addition. Yields results from both given parsers."""
 
@@ -200,7 +204,33 @@ class Branch(Expression):
         for result, pos in itertools.chain(self.p(value, position),
                                            self.q(value, position)):
             yield result, pos
-            
+
+
+class Both(Expression):
+    """Parse if both child-parsers parsed successfully at the same position"""
+
+    def __init__(self, p, q):
+        self.p = p
+        self.q = q
+
+    def __call__(self, value, position):
+        for r1, p1 in self.p(value, position):
+            for r2, p2 in self.q(value, position):
+                yield r2, p2
+
+
+class Inside(Expression):
+    """Re-Parse the result of the outer expression"""
+
+    def __init__(self, outer, inner):
+        self.outer = outer
+        self.inner = inner
+
+    def __call__(self, value, position):
+        for outer_result, outer_pos in self.outer(value, position):
+            for inner_result, inner_pos in self.inner(outer_result, 0):
+                    yield inner_result, outer_pos
+
 
 class Element(Expression):
     """Parser for just the next element"""

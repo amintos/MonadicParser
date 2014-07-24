@@ -98,7 +98,7 @@ at(i)       # Extract item i from an input collection
 
 **Example:** Given two classes ```X``` (with an integer attribute ```foo```) and ```Y``` (with an integer attribute ```bar```). A parser which extracts the integer from either of these classes and checks for its type may looks like this:
 
-```
+```python
 class X(object):
     def __init__(self):
         self.foo = 42

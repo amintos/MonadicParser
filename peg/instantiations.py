@@ -108,6 +108,10 @@ class Constant(Unifiable):
 class Variable(Unifiable):
     """Captures the matched value. Matches only the captured value again."""
 
+    @classmethod
+    def list(cls, n):
+        return [cls() for i in xrange(n)]
+
     def __init__(self):
         self.bound = False
         self.value = None

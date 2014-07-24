@@ -89,3 +89,17 @@ for result, pos in get_the_int(X(), 0):
 
 for result, pos in get_the_int(Y(), 0):
     print v.value
+
+# Parse a list of lists
+
+input = [[1, 2], [3, 4]]
+
+dig = Set(range(10))
+#dig = item(1) | item(2) | item(3) | item(4)
+
+# Use the cut combinator -p to avoid recursing through every instantiation
+line = -many(dig)
+matrix = -many(element[line])
+
+for result, pos in matrix(input, 0):
+    print result

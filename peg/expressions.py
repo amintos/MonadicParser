@@ -156,6 +156,9 @@ class Expression(object):
         """Bind operator in a monad of parsers"""
         return Bind(self, other)
 
+    def __neg__(self):
+        return cut(self)
+
 
 class Bind(Expression):
     """Resulting parser of the monadic bind operator.
@@ -232,6 +235,15 @@ class Inside(Expression):
                     yield inner_result, outer_pos
 
 
+def cut(parser):
+    def cutted(value, pos, parser=parser):
+        for result, newpos in parser(value, pos):
+            yield result, newpos
+            break
+    return cutted
+
+
+
 class Element(Expression):
     """Parser for just the next element"""
     
@@ -295,8 +307,10 @@ class Set(Expression):
             raise TypeError("& only applies to Set expressions")
 
     def __call__(self, value, position):
-        if value[position] in self.choices:
-            yield value
+        if position < len(value):
+            v = value[position]
+            if v in self.choices:
+                yield v, position + 1
 
 
 class Reference(Expression):

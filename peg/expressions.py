@@ -233,6 +233,42 @@ def some(p):
                  many(p) ** (lambda aa:
                              Return([a] + aa)))
 
+class Set(Expression):
+    """Sets represent classes of acceptable items.
+    They optimize certain combinators by mapping them onto set arithmetics"""
+
+    def __init__(self, choices):
+        self.choices = choices if isinstance(choices, Set) else set(choices)
+
+    def __or__(self, other):
+        if isinstance(other, Set):
+            return Set(self.choices | other.choices)
+        else:
+            return Expression.__or__(self, other)
+
+    def __and__(self, other):
+        if isinstance(other, Set):
+            return Set(self.choices & other.choices)
+        else:
+            raise TypeError("& only applies to Set expressions")
+
+    def __xor__(self, other):
+        if isinstance(other, Set):
+            return Set(self.choices ^ other.choices)
+        else:
+            return Expression.__xor__(self, other)
+
+    def __sub__(self, other):
+        if isinstance(other, Set):
+            return Set(self.choices - other.choices)
+        else:
+            raise TypeError("& only applies to Set expressions")
+
+    def __call__(self, value, position):
+        if value[position] in self.choices:
+            yield value
+
+
 class Reference(Expression):
     """Lazy reference to a grammar rule. Detects infinite recursion."""
 

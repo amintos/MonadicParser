@@ -84,9 +84,9 @@ for result, pos in add('1+1', 0):
 # 0, that's the result of our method.
 ```
 
-### Recursing and ealing with objects
+### Recursing and dealing with objects
 
-The subscript combinator ```p[q]``` is a way of re-parsing the output of ```p``` with ```q```. If ```p``` just outputs a list (like the ```many``` or ```some``` combinators do), ```q``` may just use the parser semantics discussed above. However, many parsers will not yield parsable collections but single objects instead.
+The subscript combinator ```p [ q ]``` is a way of re-parsing the output of ```p``` with ```q```. If ```p``` just outputs a list (like the ```many``` or ```some``` combinators do), ```q``` may just use the parser semantics discussed above. However, many parsers will not yield parsable collections but single objects instead.
 
 A single object can be parsed and returned using the ```this``` unit parser. So ```p[this]``` is the same as ```p```. There are some more parser combinators which use single-object semantics instead of indexable lists:
 
@@ -113,7 +113,7 @@ v = Variable()
 get_the_int = (type_of(X) & get('foo') | 
                type_of(Y) & get('bar')) [ type_of(int) >> v]
                
-# use it this way: 
+# use it this way (or input Y() instead of X()):
 for result, pos in get_the_int(X(), 0):
     print v.value
 ```

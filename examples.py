@@ -95,8 +95,6 @@ for result, pos in get_the_int(Y(), 0):
 input = [[1, 2], [3, 4]]
 
 dig = Set(range(10))
-#dig = item(1) | item(2) | item(3) | item(4)
-
 # Use the cut combinator -p to avoid recursing through every instantiation
 line = -many(dig)
 matrix = -many(element[line])

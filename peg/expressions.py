@@ -255,7 +255,11 @@ element = Element()
         
 def chain(p1, p2):
     """Apply both parsers in order, return the most recent result"""
-    return p1 ** (lambda result: p2)
+    #return p1 ** (lambda result: p2)
+
+    return p1 ** (lambda r1:
+           p2 ** (lambda r2:
+           Return(r1 + r2) if hasattr(r1, '__add__') else Return(r2)))
 
 def when(predicate):
     """Parse an element when it satisfies the predicate"""
@@ -304,7 +308,7 @@ class Set(Expression):
         if isinstance(other, Set):
             return Set(self.choices - other.choices)
         else:
-            raise TypeError("& only applies to Set expressions")
+            raise TypeError("- only applies to Set expressions")
 
     def __call__(self, value, position):
         if position < len(value):

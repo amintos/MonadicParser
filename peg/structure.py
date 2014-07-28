@@ -27,7 +27,21 @@ class This(Expression):
         yield value, position
 
 
+class Attribute(Expression):
+
+    def __init__(self, parser, attr):
+        self.parser = parser
+        self.attr = attr
+
+    def __call__(self, value, position):
+        for result, pos in self.parser(value, position):
+            try:
+                yield getattr(result, self.attr), pos
+            except AttributeError:
+                pass
+
 this = This()
+
 
 
 def get(name):

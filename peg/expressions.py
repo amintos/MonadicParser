@@ -159,6 +159,10 @@ class Expression(object):
     def __neg__(self):
         return cut(self)
 
+    def __getattr__(self, item):
+        from structure import Attribute
+        return Attribute(self, item)
+
 
 class Bind(Expression):
     """Resulting parser of the monadic bind operator.
@@ -235,12 +239,17 @@ class Inside(Expression):
                     yield inner_result, outer_pos
 
 
-def cut(parser):
-    def cutted(value, pos, parser=parser):
-        for result, newpos in parser(value, pos):
-            yield result, newpos
+class Cut(Expression):
+
+    def __init__(self, expr):
+        self.expr = expr
+
+    def __call__(self, value, position):
+        for result, pos in self.expr(value, position):
+            yield result, pos
             break
-    return cutted
+
+cut = Cut
 
 
 
